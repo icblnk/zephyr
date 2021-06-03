@@ -57,7 +57,7 @@ static void dns_resolve_cb(enum dns_resolve_status status,
 	struct zsock_addrinfo *ai;
 	int socktype = SOCK_STREAM;
 
-	NET_DBG("dns status: %d", status);
+	printk("dns status: %d, idx: %d\n", status, state->idx);
 
 	if (info == NULL) {
 		if (status == DNS_EAI_ALLDONE) {
@@ -69,7 +69,7 @@ static void dns_resolve_cb(enum dns_resolve_status status,
 	}
 
 	if (state->idx >= CONFIG_DNS_RESOLVER_AI_MAX_ENTRIES) {
-		NET_DBG("getaddrinfo entries overflow");
+		printk("getaddrinfo entries overflow\n");
 		return;
 	}
 

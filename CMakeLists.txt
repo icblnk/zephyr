@@ -47,6 +47,8 @@ assert(toolchain_is_ok "The toolchain is unable to build a dummy C file. See CMa
 set(CMAKE_EXECUTABLE_SUFFIX .elf)
 set(ZEPHYR_PREBUILT_EXECUTABLE zephyr_prebuilt)
 set(ZEPHYR_FINAL_EXECUTABLE    zephyr_final)
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+
 
 # Set some phony targets to collect dependencies
 set(OFFSETS_H_TARGET           offsets_h)
