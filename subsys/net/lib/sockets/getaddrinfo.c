@@ -56,7 +56,6 @@ static void dns_resolve_cb(enum dns_resolve_status status,
 	struct getaddrinfo_state *state = user_data;
 	struct zsock_addrinfo *ai;
 	int socktype = SOCK_STREAM;
-	int proto;
 
 	NET_DBG("dns status: %d", status);
 
@@ -69,12 +68,16 @@ static void dns_resolve_cb(enum dns_resolve_status status,
 		return;
 	}
 
-	if (state->idx >= AI_ARR_MAX) {
+	if (state->idx >= CONFIG_DNS_RESOLVER_AI_MAX_ENTRIES) {
 		NET_DBG("getaddrinfo entries overflow");
 		return;
 	}
 
 	ai = &state->ai_arr[state->idx];
+	if (state->idx > 0) {
+		state->ai_arr[state->idx - 1].ai_next = ai;
+	}
+
 	memcpy(&ai->_ai_addr, &info->ai_addr, info->ai_addrlen);
 	net_sin(&ai->_ai_addr)->sin_port = state->port;
 	ai->ai_addr = &ai->_ai_addr;
@@ -90,13 +93,8 @@ static void dns_resolve_cb(enum dns_resolve_status status,
 		}
 	}
 
-	proto = IPPROTO_TCP;
-	if (socktype == SOCK_DGRAM) {
-		proto = IPPROTO_UDP;
-	}
-
 	ai->ai_socktype = socktype;
-	ai->ai_protocol = proto;
+	ai->ai_protocol = (socktype == SOCK_DGRAM) ? IPPROTO_UDP : IPPROTO_TCP;
 
 	state->idx++;
 }
@@ -198,9 +196,6 @@ int z_impl_z_zsock_getaddrinfo_internal(const char *host, const char *service,
 	ai_state.ai_arr = res;
 	k_sem_init(&ai_state.sem, 0, K_SEM_MAX_LIMIT);
 
-	/* Link entries in advance */
-	ai_state.ai_arr[0].ai_next = &ai_state.ai_arr[1];
-
 	/* If the family is AF_UNSPEC, then we query IPv4 address first */
 	ret = exec_query(host, family, &ai_state);
 	if (ret == 0) {
@@ -285,7 +280,8 @@ static inline int z_vrfy_z_zsock_getaddrinfo_internal(const char *host,
 		Z_OOPS(z_user_from_copy(&hints_copy, (void *)hints,
 					sizeof(hints_copy)));
 	}
-	Z_OOPS(Z_SYSCALL_MEMORY_ARRAY_WRITE(res, AI_ARR_MAX,
+	Z_OOPS(Z_SYSCALL_MEMORY_ARRAY_WRITE(res,
+					    CONFIG_DNS_RESOLVER_AI_MAX_ENTRIES,
 					    sizeof(struct zsock_addrinfo)));
 
 	if (service) {
@@ -407,7 +403,7 @@ int zsock_getaddrinfo(const char *host, const char *service,
 	int ret = DNS_EAI_FAIL;
 
 #if defined(ANY_RESOLVER)
-	*res = calloc(AI_ARR_MAX, sizeof(struct zsock_addrinfo));
+	*res = calloc(CONFIG_DNS_RESOLVER_AI_MAX_ENTRIES, sizeof(struct zsock_addrinfo));
 	if (!(*res)) {
 		return DNS_EAI_MEMORY;
 	}
